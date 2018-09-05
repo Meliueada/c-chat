@@ -1,58 +1,5 @@
 #include "utility.h"
 
-
-/*readline函数实现*/
-ssize_t readline(int fd, char *vptr, size_t maxlen)
-{
-    ssize_t n, rc;
-    char    c, *ptr;
-
-    ptr = vptr;
-    for (n = 1; n < maxlen; n++) {
-        if ( (rc = read(fd, &c,1)) == 1) {
-            *ptr++ = c;
-            if (c == '\n')
-                break;  /* newline is stored, like fgets() */
-        } else if (rc == 0) {
-            *ptr = 0;
-            return(n - 1);  /* EOF, n - 1 bytes were read */
-        } else
-            return(-1);     /* error, errno set by read() */
-    }
-
-    *ptr = 0;   /* null terminate like fgets() */
-    return(n);
-}
-
-
-/*普通客户端消息处理函数*/
-void str_cli(int sockfd)
-    {
-
-     /*发送和接收缓冲区*/
-     char sendline[MAX_LINE] , recvline[MAX_LINE];
-     while(fgets(sendline , MAX_LINE , stdin) != NULL)
-        {
-        write(sockfd , sendline , strlen(sendline));
-    //    bzero(recvline , MAX_LINE);
-    //    if(readline(sockfd , recvline , MAX_LINE) == 0)
-    //    {
-    //    perror("server terminated prematurely");
-    //    exit(1);
-    //    }//if
-    //    
-    //    if(fputs(recvline , stdout) == EOF)
-    //    {
-    //    perror("fputs error");
-    //    exit(1);
-    //    }//if
-    //    
-    //    bzero(sendline , MAX_LINE);
-    
-  }//while
-  }
-
-
 int main()
 {
     ///定义sockaddr_in
@@ -62,37 +9,123 @@ int main()
     servaddr.sin_port = htons(MYPORT);  ///服务器端口
     servaddr.sin_addr.s_addr = inet_addr(SERVER_IP);  ///服务器ip
 
-
-    ///定义sockfd
+    ///定义tcp的sockfd
     int sock = socket(AF_INET,SOCK_STREAM, 0);
     if(sock <0){
         perror("sock error");
         exit(-1);
     }
 
+
     ///连接服务器，成功返回0，错误返回-1
     if (connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("connect");
-        exit(1);
+        exit(1); }
+
+       ///定义udp的sockfd
+    int sockListen;
+    if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1){
+        perror("udp sock error");
+        exit(-1);
+    }
+    int set = 1;
+    setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
+    struct sockaddr_in recvAddr;
+    memset(&recvAddr, 0, sizeof(struct sockaddr_in));
+    recvAddr.sin_family = AF_INET;
+    recvAddr.sin_port = htons(4001);
+    recvAddr.sin_addr.s_addr = INADDR_ANY;
+
+    //绑定 
+    if(bind(sockListen, (struct sockaddr *)&recvAddr, sizeof(struct sockaddr)) == -1){
+        perror("udp bind error");
+        exit(-1);
     }
 
-
-    char message[BUF_SIZE];
     char sendline[MAX_LINE] , recvline[MAX_LINE];
-    while(1){
-         fgets(sendline , MAX_LINE , stdin);
-         printf("ssssssssss\n");
-         write(sock , sendline , strlen(sendline));
-         printf("end\n");
-         getBroadcastMessage();
-    }//while
 
-    //str_cli(sock);
+    //判断客户端是否正常工作
+    bool isClientWorking = true;
 
-    close(sock);
+    //创建管道, fd[0]读，fd[1]写
+    int pipe_fd[2];
+    if(pipe(pipe_fd) < 0) { perror("pipe error"); exit(-1); }
+
+    //创建epoll
+    int epfd = epoll_create(EPOLL_SIZE);
+    if(epfd < 0) { perror("epfd error"); exit(-1); }
+    static struct epoll_event ev, events[EPOLL_SIZE];
+    //添加sock到epoll
+    epfd = epoll_create(CONNECT_SIZE);
+    ev.data.fd = sock;
+    ev.events = EPOLLIN;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, sockListen, &ev);
+    //添加管道到epoll
+    ev.data.fd = pipe_fd[0];
+    ev.events = EPOLLIN;
+    epoll_ctl(epfd, EPOLL_CTL_ADD,pipe_fd[0],&ev);
+    
+    //创建子进程 
+    int pid = fork();
+    //printf("pid:%d\n",pid);
+    if(pid < 0) { perror("fork error"); exit(-1); }
+
+    else if(pid == 0)     // 子进程
+    {
+        close(pipe_fd[0]);
+        while(isClientWorking){
+         //   bzero(&sendline, BUF_SIZE);
+            fgets(sendline , BUF_SIZE, stdin);
+            if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
+                perror("fork error"); 
+                exit(-1);
+            }//if
+
+        }//while
+
+    }//else if
+
+    else{
+        while(isClientWorking){
+            int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
+            int i;
+            for (i = 0; i < epoll_events_count; ++i){
+                int even_fd = events[i].data.fd;
+                printf("even_fd:%d\n",even_fd);
+                printf("sock:%d\n",sock);
+                if (events[i].data.fd == sock){
+                int recvbytes;
+                int addrLen = sizeof(struct sockaddr_in);
+                if((recvbytes = recvfrom(sockListen, recvline, 128, 0, (struct sockaddr *)&recvAddr, &addrLen)) != -1)
+                recvline[recvbytes] = '\0';
+                printf("receive a broadCast messgse:%s\n", recvline);
+                }
+                else{
+                    int ret = read(events[i].data.fd, recvline, MAX_LINE);
+                    if(ret == 0){
+                        isClientWorking = 0;
+                    }
+                    else{
+                        send(sock, recvline, MAX_LINE, 0);
+
+                    }//else
+                }//else
+            }//for
+        }//while
+    }//else
+
+    if(pid){
+       //关闭父进程和sock
+        close(pipe_fd[0]);
+        close(sock);
+    }else{
+        //关闭子进程
+        close(pipe_fd[1]);
+    }
     return 0;
+
 }
 
-
+            
 
