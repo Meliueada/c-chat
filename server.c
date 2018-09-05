@@ -85,16 +85,22 @@ int main()
                 printf("Add new clientfd = %d to epoll\n", clientfd);
                 clients_count = getClientsNum(clients);
                 printf("Now there are %d clients in the chatroom\n",clients_count );
-               
+
+         //       //服务器发送欢迎消息给client
+         //       char message[BUF_SIZE];
+         //       bzero(message, BUF_SIZE);
+         //       sprintf(message, SERVER_WELCOME, clientfd);
+         //       int ret = send(clientfd, message, BUF_SIZE, 0);
+         //       if(ret < 0) { perror("send error"); exit(-1); }
+
             }//if
 
             /*如果是已链接用户，并且收到数据，进行读入*/
             else if(events[i].events & EPOLLIN){
-
+                printf("EPOLLIN999999999999999\n");
                 if((sockfd = events[i].data.fd) < 0)
                     continue;
                 bzero(buf , MAX_LINE);
-                printf("reading the socket~~~\n");
                 if((n = read(sockfd , buf , MAX_LINE)) <= 0)
                 {
                     close(sockfd);
@@ -108,17 +114,21 @@ int main()
                     ev.data.fd = sockfd;
                     ev.events = EPOLLOUT| EPOLLET;
                     epoll_ctl(epfd , EPOLL_CTL_MOD , sockfd , &ev);
+
                 }//else
             }//else
                 else if(events[i].events & EPOLLOUT)
             {
+                printf("EPOLLOUT99999999999999\n");
                 if((sockfd = events[i].data.fd) < 0)
                 continue;
-                if((ret = write(sockfd , buf , n)) != n)
-                {
-                    printf("error writing to the sockfd!\n");
-                    break;
-                }//if
+                sendBroadcastmessage(buf);
+
+              //  if((ret = write(sockfd , buf , n)) != n)
+              //  {
+              //      printf("error writing to the sockfd!\n");
+              //      break;
+              //  }//if
                 /*设置用于读的文件描述符和事件*/
                 ev.data.fd = sockfd;
                 ev.events = EPOLLIN | EPOLLET;

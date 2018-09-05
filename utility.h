@@ -77,71 +77,76 @@ for (i=0; i<10; i++){
 }
 
 
-
-
-
-
-
-
 //设置sockfd,pipefd非阻塞
 int setnonblocking(int sockfd)
 {
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFD, 0)| O_NONBLOCK);
     return 0;
 }
-
-
-
-
-//void addfd( int epollfd, int fd, bool enable_et )
-//{
-//    struct epoll_event ev;
-//    ev.data.fd = fd;
-//    ev.events = EPOLLIN;     //输入触发epoll-event
-//    if( enable_et )
-//        ev.events = EPOLLIN | EPOLLET;
-//    epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
-//    setnonblocking(fd);
-// //   printf("fd added to epoll!\n\n");
-//}
-
-
-
-
 //将服务器收到的clientfd的消息进行广播
-int sendBroadcastmessage(int clientfd)
+int sendBroadcastmessage(char msg[30])
 {
-
-    char buf[BUF_SIZE], message[BUF_SIZE];
-    //清零
-    bzero(buf, BUF_SIZE);
-    bzero(message, BUF_SIZE);
-
-    printf("read from client(clientID = %d)\n", clientfd);
-    int len = recv(clientfd, buf, BUF_SIZE, 0);
-
-    if(len == 0)  // len = 0 client关闭了连接
-    {
-        close(clientfd);
-      //  clients_list.remove(clientfd); //list删除fd
-     //   printf("ClientID = %d closed.\n now there are %d client in the char room\n", clientfd, (int)clients_list.size());
-
+    int bcfd;
+    if((bcfd = socket(PF_INET, SOCK_DGRAM, 0)) == -1){
+        printf("socket fail\n");
+        return -1;
     }
-    else  //进行广播
-    {
-     //   if(clients_list.size() == 1) {
-     //       send(clientfd, CAUTION, strlen(CAUTION), 0);
-     //       return len;
-     //   }
+    int optval = 1;
+    setsockopt(bcfd, SOL_SOCKET, SO_BROADCAST | SO_REUSEADDR, &optval, sizeof(int));
+    struct sockaddr_in theirAddr;
+    memset(&theirAddr, 0, sizeof(struct sockaddr_in));
+    theirAddr.sin_family = AF_INET;
+    theirAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+    theirAddr.sin_port = htons(4001);
 
-        sprintf(message, SERVER_MESSAGE, clientfd, buf);
-
-      //  for(it = clients_list.begin(); it != clients_list.end(); ++it) {
-      //     if(*it != clientfd){
-      //          if( send(*it, message, BUF_SIZE, 0) < 0 ) { perror("error"); exit(-1);}
-      //     }
-      //  }
+    int sendBytes;
+    
+    if((sendBytes = sendto(bcfd, msg, strlen(msg), 0,
+            (struct sockaddr *)&theirAddr, sizeof(struct sockaddr))) == -1){
+        printf("sendto fail, errno=%d\n", errno);
+        return -1;
     }
-    return len;
+    printf("msg=%s, msgLen=%d, sendBytes=%d\n", msg, strlen(msg), sendBytes);
+   // close(bcfd);
+    return 0;
+
 }
+
+//群聊消息通过广播接受
+int getBroadcastMessage(){
+    int sockListen;
+    if((sockListen = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
+        printf("socket fail\n");
+        exit(-1);
+    }
+    int set = 1;
+    setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
+    struct sockaddr_in recvAddr;
+    memset(&recvAddr, 0, sizeof(struct sockaddr_in));
+    recvAddr.sin_family = AF_INET;
+    recvAddr.sin_port = htons(4001);
+    recvAddr.sin_addr.s_addr = INADDR_ANY;
+    // 必须绑定，否则无法监听
+    if(bind(sockListen, (struct sockaddr *)&recvAddr, sizeof(struct sockaddr)) == -1){
+        printf("bind fail\n");
+        exit(-1);
+    }
+    int recvbytes;
+    char recvbuf[128];
+    recvbuf[recvbytes] = '\0';
+    int addrLen = sizeof(struct sockaddr_in);
+    while(1){
+    if((recvbytes = recvfrom(sockListen, recvbuf, 128, 0,
+        (struct sockaddr *)&recvAddr, &addrLen)) != -1){
+        recvbuf[recvbytes] = '\0';
+        printf("receive a broadCast messgse:%s\n", recvbuf);
+    }else{
+        printf("recvfrom fail\n");
+    }
+    }
+    close(sockListen);
+    return 0;
+
+}
+
 

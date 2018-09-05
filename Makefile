@@ -13,6 +13,8 @@ broadcast_server:
 broadcast_client:
 	cc broadcast_client.c -o broadcast_client
 
+udp_client:
+	cc udp_client.c -o udpclient
 
 clean:
 	rm server client

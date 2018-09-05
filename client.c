@@ -34,32 +34,27 @@ void str_cli(int sockfd)
      while(fgets(sendline , MAX_LINE , stdin) != NULL)
         {
         write(sockfd , sendline , strlen(sendline));
-        
-        bzero(recvline , MAX_LINE);
-        if(readline(sockfd , recvline , MAX_LINE) == 0)
-        {
-        perror("server terminated prematurely");
-        exit(1);
-        }//if
-        
-        if(fputs(recvline , stdout) == EOF)
-        {
-        perror("fputs error");
-        exit(1);
-        }//if
-        
-        bzero(sendline , MAX_LINE);
+    //    bzero(recvline , MAX_LINE);
+    //    if(readline(sockfd , recvline , MAX_LINE) == 0)
+    //    {
+    //    perror("server terminated prematurely");
+    //    exit(1);
+    //    }//if
+    //    
+    //    if(fputs(recvline , stdout) == EOF)
+    //    {
+    //    perror("fputs error");
+    //    exit(1);
+    //    }//if
+    //    
+    //    bzero(sendline , MAX_LINE);
+    
   }//while
   }
 
 
-
-
-
-
 int main()
 {
-
     ///定义sockaddr_in
     struct sockaddr_in servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
@@ -83,13 +78,17 @@ int main()
     }
 
 
-
-    //判断客户端是否正常工作
-    bool isClientwork = true;
-
     char message[BUF_SIZE];
+    char sendline[MAX_LINE] , recvline[MAX_LINE];
+    while(1){
+         fgets(sendline , MAX_LINE , stdin);
+         printf("ssssssssss\n");
+         write(sock , sendline , strlen(sendline));
+         printf("end\n");
+         getBroadcastMessage();
+    }//while
 
-    str_cli(sock);
+    //str_cli(sock);
 
     close(sock);
     return 0;
