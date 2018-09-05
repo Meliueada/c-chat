@@ -28,6 +28,10 @@
 #define QUEUE   20
 #define BUFFER_SIZE 1024
 #define SERVER_IP "127.0.0.1" 
+#define MAXLINE 4096
+#define MAX_LINE 2048
+#define CONNECT_SIZE 256
+
 
 //epoll 支持的最大并发量
 #define EPOLL_SIZE 5000
@@ -37,9 +41,46 @@
 #define BUF_SIZE 0x10000
 
 
-#define CAUTION "There is only one int the char room!"
+#define CAUTION "There is only one in the chatroom!"
 
 #define SERVER_MESSAGE "ClientID %d say >> %s"
+
+
+/*数组储存当前用户连接状态
+ * 返回在线用户数量等
+ */
+//返回当前客户数量
+int getClientsNum(int *clients){
+int i;
+int count=0;
+for (i = 0; i<10; i++){
+    if (clients[i]!= 0){
+        count ++;
+    }
+}
+
+return count;
+}
+
+//删除客户
+void deleteClient(int *clients, int num){
+int i;
+int clients_index;
+for (i=0; i<10; i++){
+    if (clients[i] == num){
+        clients_index = i;
+        clients[i] = 0;
+        break;
+    }
+
+}
+}
+
+
+
+
+
+
 
 
 //设置sockfd,pipefd非阻塞
@@ -52,17 +93,17 @@ int setnonblocking(int sockfd)
 
 
 
-void addfd( int epollfd, int fd, bool enable_et )
-{
-    struct epoll_event ev;
-    ev.data.fd = fd;
-    ev.events = EPOLLIN;     //输入触发epoll-event
-    if( enable_et )
-        ev.events = EPOLLIN | EPOLLET;
-    epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
-    setnonblocking(fd);
- //   printf("fd added to epoll!\n\n");
-}
+//void addfd( int epollfd, int fd, bool enable_et )
+//{
+//    struct epoll_event ev;
+//    ev.data.fd = fd;
+//    ev.events = EPOLLIN;     //输入触发epoll-event
+//    if( enable_et )
+//        ev.events = EPOLLIN | EPOLLET;
+//    epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
+//    setnonblocking(fd);
+// //   printf("fd added to epoll!\n\n");
+//}
 
 
 

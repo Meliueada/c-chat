@@ -1,21 +1,64 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <stdio.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/shm.h>
+#include "utility.h"
 
-#define MYPORT  8887
-#define BUFFER_SIZE 1024
+
+/*readline函数实现*/
+ssize_t readline(int fd, char *vptr, size_t maxlen)
+{
+    ssize_t n, rc;
+    char    c, *ptr;
+
+    ptr = vptr;
+    for (n = 1; n < maxlen; n++) {
+        if ( (rc = read(fd, &c,1)) == 1) {
+            *ptr++ = c;
+            if (c == '\n')
+                break;  /* newline is stored, like fgets() */
+        } else if (rc == 0) {
+            *ptr = 0;
+            return(n - 1);  /* EOF, n - 1 bytes were read */
+        } else
+            return(-1);     /* error, errno set by read() */
+    }
+
+    *ptr = 0;   /* null terminate like fgets() */
+    return(n);
+}
+
+
+/*普通客户端消息处理函数*/
+void str_cli(int sockfd)
+    {
+
+     /*发送和接收缓冲区*/
+     char sendline[MAX_LINE] , recvline[MAX_LINE];
+     while(fgets(sendline , MAX_LINE , stdin) != NULL)
+        {
+        write(sockfd , sendline , strlen(sendline));
+        
+        bzero(recvline , MAX_LINE);
+        if(readline(sockfd , recvline , MAX_LINE) == 0)
+        {
+        perror("server terminated prematurely");
+        exit(1);
+        }//if
+        
+        if(fputs(recvline , stdout) == EOF)
+        {
+        perror("fputs error");
+        exit(1);
+        }//if
+        
+        bzero(sendline , MAX_LINE);
+  }//while
+  }
+
+
+
+
+
 
 int main()
 {
-    ///定义sockfd
-    int sock = socket(AF_INET,SOCK_STREAM, 0);
 
     ///定义sockaddr_in
     struct sockaddr_in servaddr;
@@ -24,33 +67,33 @@ int main()
     servaddr.sin_port = htons(MYPORT);  ///服务器端口
     servaddr.sin_addr.s_addr = inet_addr(SERVER_IP);  ///服务器ip
 
+
+    ///定义sockfd
+    int sock = socket(AF_INET,SOCK_STREAM, 0);
+    if(sock <0){
+        perror("sock error");
+        exit(-1);
+    }
+
     ///连接服务器，成功返回0，错误返回-1
-    if (connect(sock_cli, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+    if (connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("connect");
         exit(1);
     }
-    int epfd = epoll_create(EPOLL_SIZE);
-    if(epfd < 0) { perror("epfd error"); exit(-1); } 
-    static struct epoll_event events[2];
-    addfd(epfd, sock, true);
 
+
+
+    //判断客户端是否正常工作
     bool isClientwork = true;
 
-    char sendbuf[BUFFER_SIZE];
-    char recvbuf[BUFFER_SIZE];
-    while (fgets(sendbuf, sizeof(sendbuf), stdin) != NULL)
-    {
-        send(sock_cli, sendbuf, strlen(sendbuf),0); ///发送
-        if(strcmp(sendbuf,"exit\n")==0)
-            break;
-        recv(sock_cli, recvbuf, sizeof(recvbuf),0); ///接收
-        fputs(recvbuf, stdout);
+    char message[BUF_SIZE];
 
-        memset(sendbuf, 0, sizeof(sendbuf));
-        memset(recvbuf, 0, sizeof(recvbuf));
-    }
+    str_cli(sock);
 
-    close(sock_cli);
+    close(sock);
     return 0;
 }
+
+
+
