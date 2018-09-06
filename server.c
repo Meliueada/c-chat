@@ -26,7 +26,6 @@ int main()
         exit(1);
     }
 
-
     //创建事件表
     int epfd = epoll_create(EPOLL_SIZE);
 	if(epfd < 0) { perror("epfd error"); exit(-1);}
@@ -41,7 +40,6 @@ int main()
     /*注册事件*/
     epoll_ctl(epfd, EPOLL_CTL_ADD, server_sockfd, &ev);
 
-
     // 服务端用数组保存用户连接
     int clients[10] = {0};
     while(1)
@@ -52,7 +50,6 @@ int main()
             break;
         }
         printf("epoll_events_count = %d\n", epoll_events_count);
-
         int i;
         for(i = 0; i < epoll_events_count; ++i)
         {
@@ -80,24 +77,22 @@ int main()
                         clients[i]=clientfd;
                         break;
                     }
-                    printf("%d",clients[i]);
                 }
                 printf("Add new clientfd = %d to epoll\n", clientfd);
                 clients_count = getClientsNum(clients);
                 printf("Now there are %d clients in the chatroom\n",clients_count );
 
-         //       //服务器发送欢迎消息给client
+                //服务器发送欢迎消息给client
          //       char message[BUF_SIZE];
          //       bzero(message, BUF_SIZE);
          //       sprintf(message, SERVER_WELCOME, clientfd);
-         //       int ret = send(clientfd, message, BUF_SIZE, 0);
+         //       sendBroadcastmessage(message);
          //       if(ret < 0) { perror("send error"); exit(-1); }
 
             }//if
 
             /*如果是已链接用户，并且收到数据，进行读入*/
             else if(events[i].events & EPOLLIN){
-                printf("EPOLLIN999999999999999\n");
                 if((sockfd = events[i].data.fd) < 0)
                     continue;
                 bzero(buf , MAX_LINE);
@@ -109,6 +104,12 @@ int main()
                 else{
                     buf[n] = '\0';
                     printf("clint[%d] send message: %s\n", i , buf);
+                    if (strncasecmp(buf, "register", strlen("register")) == 0){
+                        bzero(buf , MAX_LINE);
+                        read(sockfd, buf, MAX_LINE);
+                        printf("buf%s\n", buf);
+                        continue;
+                    }
 
                     /*设置用于注册写操作文件描述符和事件*/
                     ev.data.fd = sockfd;
@@ -119,7 +120,6 @@ int main()
             }//else
                 else if(events[i].events & EPOLLOUT)
             {
-                printf("EPOLLOUT99999999999999\n");
                 if((sockfd = events[i].data.fd) < 0)
                 continue;
                 sendBroadcastmessage(buf);

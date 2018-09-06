@@ -15,15 +15,13 @@ int main()
         perror("sock error");
         exit(-1);
     }
-
-
     ///连接服务器，成功返回0，错误返回-1
     if (connect(sock, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
         perror("connect");
         exit(1); }
 
-       ///定义udp的sockfd
+    ///定义udp的sockfd
     int sockListen;
     if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1){
         perror("udp sock error");
@@ -36,22 +34,17 @@ int main()
     recvAddr.sin_family = AF_INET;
     recvAddr.sin_port = htons(4001);
     recvAddr.sin_addr.s_addr = INADDR_ANY;
-
     //绑定 
     if(bind(sockListen, (struct sockaddr *)&recvAddr, sizeof(struct sockaddr)) == -1){
         perror("udp bind error");
         exit(-1);
     }
-
     char sendline[MAX_LINE] , recvline[MAX_LINE];
-
     //判断客户端是否正常工作
     bool isClientWorking = true;
-
     //创建管道, fd[0]读，fd[1]写
     int pipe_fd[2];
     if(pipe(pipe_fd) < 0) { perror("pipe error"); exit(-1); }
-
     //创建epoll
     int epfd = epoll_create(EPOLL_SIZE);
     if(epfd < 0) { perror("epfd error"); exit(-1); }
@@ -68,32 +61,45 @@ int main()
     
     //创建子进程 
     int pid = fork();
-    //printf("pid:%d\n",pid);
+    char username[32];
+    char *delim = "--"; //用户名称分隔符
+    char *p;
+    char type[32];
     if(pid < 0) { perror("fork error"); exit(-1); }
-
     else if(pid == 0)     // 子进程
     {
         close(pipe_fd[0]);
+        printf("you could input EXIT to quit the chatroom\n");
+        printf("please input your name like 'name--li':");
+        write(pipe_fd[1], "register", strlen("register"));
+        fgets(sendline , BUF_SIZE, stdin);
+        sprintf(type, "%s\n",strtok(sendline,delim));
+        while(p=strtok(NULL,delim)){
+                sprintf(username, "%s",p);
+        }
+        //名称不合规，注册失败，重新注册
+        while(strncasecmp(type, "name", strlen("name")) != 0){
+                printf("wrong name, please input again\n");
+                fgets(sendline , BUF_SIZE, stdin);
+                sprintf(type, "%s\n",strtok(sendline,delim));
+            }
+        write(pipe_fd[1], username, strlen(username));
         while(isClientWorking){
-         //   bzero(&sendline, BUF_SIZE);
-            fgets(sendline , BUF_SIZE, stdin);
-            if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
-                perror("fork error"); 
+               bzero(&sendline, MAX_LINE);
+               fgets(sendline , BUF_SIZE, stdin);
+               if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
+                perror("write error"); 
                 exit(-1);
             }//if
-
         }//while
-
     }//else if
-
     else{
         while(isClientWorking){
             int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
             int i;
+            bzero(recvline, MAX_LINE);
             for (i = 0; i < epoll_events_count; ++i){
                 int even_fd = events[i].data.fd;
-                printf("even_fd:%d\n",even_fd);
-                printf("sock:%d\n",sock);
                 if (events[i].data.fd == sock){
                 int recvbytes;
                 int addrLen = sizeof(struct sockaddr_in);
@@ -108,7 +114,6 @@ int main()
                     }
                     else{
                         send(sock, recvline, MAX_LINE, 0);
-
                     }//else
                 }//else
             }//for
