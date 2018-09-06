@@ -77,6 +77,8 @@ int setnonblocking(int sockfd)
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFD, 0)| O_NONBLOCK);
     return 0;
 }
+
+
 //将服务器收到的clientfd的消息进行广播
 int sendBroadcastmessage(char msg[30])
 {
@@ -90,7 +92,8 @@ int sendBroadcastmessage(char msg[30])
     struct sockaddr_in theirAddr;
     memset(&theirAddr, 0, sizeof(struct sockaddr_in));
     theirAddr.sin_family = AF_INET;
-    theirAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+ //   theirAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+    
     theirAddr.sin_port = htons(4001);
 
     int sendBytes;
