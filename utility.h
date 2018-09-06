@@ -24,41 +24,47 @@
 //epoll 支持的最大并发量
 #define EPOLL_SIZE 5000
 
-#define SERVER_WELCOME "Welcome you join  to the chat room! Your chat ID is: Client #%d"
+#define SERVER_WELCOME "Welcome client 【%s】 to join the chatroom!"
+#define SERVER_EXIT  "client 【%s】exit the chatroom!"
 
 #define BUF_SIZE 0x10000
 
 
 #define CAUTION "There is only one in the chatroom!"
 
-#define SERVER_MESSAGE "ClientID %d say >> %s"
+#define USER_COUNT "Now there are %d users in the chatroom"
+
+#define USER_SPEAK "Client 【%s】 say >>>> %s"
 
 
 /*数组储存当前用户连接状态
  * 返回在线用户数量等
  */
 //返回当前客户数量
-int getClientsNum(int *clients){
+int getClientsNum(char (*clients)[10]){
 int i;
+int j;
 int count=0;
 for (i = 0; i<10; i++){
-    if (clients[i]!= 0){
+    for(j=0;j<10; j++){
+    if (clients[i][j]){
+        printf("users:%s\n",clients[i]);
         count ++;
+        printf("j%d:\n",j);
+        break;
     }
+ }
 }
 
 return count;
 }
 
 //删除客户
-void deleteClient(int *clients, int num){
-int i;
-int clients_index;
-for (i=0; i<10; i++){
-    if (clients[i] == num){
-        clients_index = i;
-        clients[i] = 0;
-        break;
+void deleteClient(char (*clients)[10], int num){
+int j;
+    for(j=0; j<10; j++){
+    if (clients[num][j]){
+        clients[num][j] = 0;
     }
 
 }
@@ -112,7 +118,18 @@ void addfd( int epollfd, int fd, bool enable_et )
  //   printf("fd added to epoll!\n\n");
 }
 
+//生成报文
+char* makePacket(char *s1, char *s2)
+{
+    char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the zero-terminator
+    //in real code you would check for errors in malloc here
+    if (result == NULL) exit (1);
+    strcpy(result, s1);
+    strcat(result, s2);
 
+    return result;
+
+}
 
 
 

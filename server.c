@@ -4,6 +4,8 @@ int main()
     ///定义sockfd
     int server_sockfd = socket(AF_INET,SOCK_STREAM, 0);
 
+    //服务器发送的通知消息
+    char message[BUF_SIZE];
     ssize_t n, ret;
     char buf[MAX_LINE];
     ///定义sockaddr_in
@@ -29,7 +31,7 @@ int main()
     //创建事件表
     int epfd = epoll_create(EPOLL_SIZE);
 	if(epfd < 0) { perror("epfd error"); exit(-1);}
-    printf("epoll created, epollfd = %d\n", epfd);
+   // printf("epoll created, epollfd = %d\n", epfd);
     static struct epoll_event ev, events[EPOLL_SIZE];
     /*生成用于处理accept的epoll专用文件描述符*/
     epfd = epoll_create(CONNECT_SIZE);
@@ -41,7 +43,7 @@ int main()
     epoll_ctl(epfd, EPOLL_CTL_ADD, server_sockfd, &ev);
 
     // 服务端用数组保存用户连接
-    int clients[10] = {0};
+    char clients[20][10] = {0};
     while(1)
     {
         int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
@@ -49,7 +51,7 @@ int main()
             perror("epoll failure");
             break;
         }
-        printf("epoll_events_count = %d\n", epoll_events_count);
+        //printf("epoll_events_count = %d\n", epoll_events_count);
         int i;
         for(i = 0; i < epoll_events_count; ++i)
         {
@@ -69,26 +71,6 @@ int main()
                 ev.data.fd = clientfd;
                 ev.events = EPOLLIN | EPOLLET;
                 epoll_ctl(epfd , EPOLL_CTL_ADD , clientfd , &ev);
-
-                int i;
-                int clients_count;   //在线用户数量
-                for (i=0;i<10;i++){
-                    if (clients[i]==0) {
-                        clients[i]=clientfd;
-                        break;
-                    }
-                }
-                printf("Add new clientfd = %d to epoll\n", clientfd);
-                clients_count = getClientsNum(clients);
-                printf("Now there are %d clients in the chatroom\n",clients_count );
-
-                //服务器发送欢迎消息给client
-         //       char message[BUF_SIZE];
-         //       bzero(message, BUF_SIZE);
-         //       sprintf(message, SERVER_WELCOME, clientfd);
-         //       sendBroadcastmessage(message);
-         //       if(ret < 0) { perror("send error"); exit(-1); }
-
             }//if
 
             /*如果是已链接用户，并且收到数据，进行读入*/
@@ -103,32 +85,59 @@ int main()
                 }//if
                 else{
                     buf[n] = '\0';
-                    printf("clint[%d] send message: %s\n", i , buf);
-                    if (strncasecmp(buf, "register", strlen("register")) == 0){
-                        bzero(buf , MAX_LINE);
-                        read(sockfd, buf, MAX_LINE);
-                        printf("buf%s\n", buf);
+                    char message_type[32];
+                    char *p;
+                    char *delim = "--";
+                    char *username;
+                    int usernum = events[i].data.fd;
+
+                    sprintf(message_type, "%s\n",strtok(buf,delim));
+                    while(p=strtok(NULL,delim)){
+                        username = p;
+                        printf("%s", p);
+                    }
+                    if(strncasecmp(message_type, "REGISTER", strlen("REGISTER")) == 0)
+                    {
+                        //新用户欢迎广播
+                        sprintf(message, SERVER_WELCOME, username);
+                        sendBroadcastmessage(message);
+                        sprintf(clients[usernum], "%s",username);
+                        printf("用户名称登记为%s\n",clients[usernum]);
+                        printf("用户名称登记号为%d\n",usernum);
+                        //用户数量播报
+                        int clients_count = getClientsNum(clients);
+                        sprintf(message, USER_COUNT, clients_count);
+                        sendBroadcastmessage(message);
                         continue;
                     }
-
+                    else if(strncasecmp(message_type, "EXIT", strlen("EXIT")) == 0)
+                    {
+                        //用户退出广播
+                        sprintf(message, SERVER_EXIT, clients[usernum]);
+                        sendBroadcastmessage(message);
+                        printf("用户名称登记号为%d",usernum);
+                        deleteClient(clients, usernum);
+                        int clients_count = getClientsNum(clients);
+                        sprintf(message, USER_COUNT, clients_count);
+                        sendBroadcastmessage(message);
+                        continue;
+                    }
+                    
                     /*设置用于注册写操作文件描述符和事件*/
                     ev.data.fd = sockfd;
                     ev.events = EPOLLOUT| EPOLLET;
                     epoll_ctl(epfd , EPOLL_CTL_MOD , sockfd , &ev);
-
                 }//else
             }//else
                 else if(events[i].events & EPOLLOUT)
             {
                 if((sockfd = events[i].data.fd) < 0)
                 continue;
-                sendBroadcastmessage(buf);
+                sprintf(message, USER_SPEAK, clients[sockfd],buf);
 
-              //  if((ret = write(sockfd , buf , n)) != n)
-              //  {
-              //      printf("error writing to the sockfd!\n");
-              //      break;
-              //  }//if
+                sendBroadcastmessage(message);
+                //printf("clint[%s] send message: %s\n", clients[i], buf);
+
                 /*设置用于读的文件描述符和事件*/
                 ev.data.fd = sockfd;
                 ev.events = EPOLLIN | EPOLLET;
@@ -137,7 +146,6 @@ int main()
             }//else
 
       }//for
-
     }
 
     close(server_sockfd);
