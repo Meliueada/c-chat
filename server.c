@@ -115,7 +115,10 @@ int main()
             {
                 if((sockfd = events[i].data.fd) < 0)
                 continue;
+               // bzero(buf , MAX_LINE);
+
                 sprintf(message, USER_SPEAK, clients[sockfd],buf);
+                printf("message%s\n",message);
 
                 sendBroadcastmessage(message);
                 //printf("clint[%s] send message: %s\n", clients[i], buf);

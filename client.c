@@ -11,29 +11,16 @@ void sendToServer(int sockfd, char message[MAX_LINE]){
 
 int main(int argc, char *argv[])
 {
-    struct sockaddr_in serv_address;
+    struct sockaddr_in tcp_address;
 
-    ///定义udp的sockfd
-    int sockListen = create_connection("UDP", "CLIENT", serv_address);
 
     //创建TCP的socket
-    int sock = create_connection("TCP", "CLIENT", serv_address);
+    int sock = create_connection("TCP", "CLIENT", tcp_address);
 
-//        perror("udp sock error");
-//            exit(-1);
-//    }
-//    int set = 1;
-//    setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
-//    struct sockaddr_in recvAddr;
-//    memset(&recvAddr, 0, sizeof(struct sockaddr_in));
-//    recvAddr.sin_family = AF_INET;
-//    recvAddr.sin_port = htons(4001);
-//    recvAddr.sin_addr.s_addr = INADDR_ANY;
-//    //绑定 
-//    if(bind(sockListen, (struct sockaddr *)&recvAddr, sizeof(struct sockaddr)) == -1){
-//        perror("udp bind error");
-//        exit(-1);
-//    }
+    struct sockaddr_in recvAddr;
+    ///定义udp的sockfd
+    int sockListen = build_udp_client(recvAddr);
+
     char sendline[MAX_LINE] , recvline[MAX_LINE];
     //判断客户端是否正常工作
     bool isClientWorking = true;
@@ -44,6 +31,7 @@ int main(int argc, char *argv[])
     int epfd = epoll_create(EPOLL_SIZE);
     if(epfd < 0) { perror("epfd error"); exit(-1); }
     static struct epoll_event ev, events[EPOLL_SIZE];
+
     //添加sock到epoll
     epfd = epoll_create(CONNECT_SIZE);
     ev.data.fd = sock;
@@ -63,72 +51,74 @@ int main(int argc, char *argv[])
         registerPacket = makePacket("REGISTER--",argv[1]);
         sendToServer(sock, registerPacket);
     }
-    //创建子进程 
-    int pid = fork();
-    char *delim = "--"; //用户名称分隔符
-    char *p;
-    char type[32];
 
-    if(pid < 0) { perror("fork error"); exit(-1); }
-    else if(pid == 0)     // 子进程
-    {
-        close(pipe_fd[0]);
-        printf("you could input EXIT to quit the chatroom\n");
-        while(isClientWorking){
-               bzero(&sendline, MAX_LINE);
-               fgets(sendline , BUF_SIZE, stdin);
-               if(strncasecmp(sendline, "EXIT", strlen("EXIT")) == 0)
-               {
-                   char *exitPacket;
-                   exitPacket=makePacket("EXIT","--");
-                   sendToServer(sock, exitPacket);
-                   printf("have a good day and wish to see you again\n");
-                   exit(-1);
+   //创建子进程 
+   //
+   int pid = fork();
+   char *delim = "--"; //用户名称分隔符
+   char *p;
+   char type[32];
+
+   if(pid < 0) { perror("fork error"); exit(-1); }
+   else if(pid == 0)     // 子进程
+   {
+       close(pipe_fd[0]);
+       printf("you could input EXIT to quit the chatroom\n");
+       while(isClientWorking){
+              bzero(&sendline, MAX_LINE);
+              fgets(sendline , BUF_SIZE, stdin);
+              if(strncasecmp(sendline, "EXIT", strlen("EXIT")) == 0)
+              {
+                  char *exitPacket;
+                  exitPacket=makePacket("EXIT","--");
+                  sendToServer(sock, exitPacket);
+                  printf("have a good day and wish to see you again\n");
+                  exit(-1);
+              }
+              if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
+               perror("write error"); 
+               exit(-1);
+           }//if
+       }//while
+   }//else if
+   else{
+       while(isClientWorking){
+           int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
+           int i;
+           bzero(recvline, MAX_LINE);
+           for (i = 0; i < epoll_events_count; ++i){
+               int even_fd = events[i].data.fd;
+               if (events[i].data.fd == sock){
+               int recvbytes;
+               int addrLen = sizeof(struct sockaddr_in);
+               if((recvbytes = recvfrom(sockListen, recvline, 128, 0, (struct sockaddr *)&recvAddr, &addrLen)) != -1)
+               recvline[recvbytes] = '\0';
+               printf("recvie%s\n", recvline);
                }
-               if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
-                perror("write error"); 
-                exit(-1);
-            }//if
-        }//while
-    }//else if
-    else{
-        while(isClientWorking){
-            int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
-            int i;
-            bzero(recvline, MAX_LINE);
-            for (i = 0; i < epoll_events_count; ++i){
-                int even_fd = events[i].data.fd;
-                if (events[i].data.fd == sock){
-                int recvbytes;
-                int addrLen = sizeof(struct sockaddr_in);
-                if((recvbytes = recvfrom(sockListen, recvline, 128, 0, (struct sockaddr *)&serv_address, &addrLen)) != -1)
-                recvline[recvbytes] = '\0';
-                printf("%s\n", recvline);
-                printf("aaaaaaaaaaaa\n");
-                }
-                else{
-                    int ret = read(events[i].data.fd, recvline, MAX_LINE);
-                    if(ret == 0){
-                        isClientWorking = 0;
-                    }
-                    else{
-                       // send(sock, recvline, MAX_LINE, 0);
-                       sendToServer(sock, recvline);
-                    }//else
-                }//else
-            }//for
-        }//while
-    }//else
+               else{
+                   int ret = read(events[i].data.fd, recvline, MAX_LINE);
+                   if(ret == 0){
+                       isClientWorking = 0;
+                   }
+                   else{
+                      // send(sock, recvline, MAX_LINE, 0);
+                      //printf("recvline%s\n",recvline);
+                      sendToServer(sock, recvline);
+                   }//else
+               }//else
+           }//for
+       }//while
+   }//else
 
-    if(pid){
-       //关闭父进程和sock
-        close(pipe_fd[0]);
-        close(sock);
-    }else{
-        //关闭子进程
-        close(pipe_fd[1]);
-    }
-    return 0;
+   if(pid){
+      //关闭父进程和sock
+       close(pipe_fd[0]);
+       close(sock);
+   }else{
+       //关闭子进程
+       close(pipe_fd[1]);
+   }
+   return 0;
 
 }
 
