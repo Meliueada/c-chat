@@ -27,11 +27,12 @@ int main(int argc, char *argv[])
         exit(1); }
 
     ///定义udp的sockfd
-    int sockListen;
-    if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1){
-        perror("udp sock error");
-        exit(-1);
+        int sockListen;
+        if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1){
+            perror("udp sock error");
+            exit(-1);
     }
+
     int set = 1;
     setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
     struct sockaddr_in recvAddr;

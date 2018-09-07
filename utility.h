@@ -17,6 +17,7 @@
 #define QUEUE   20
 #define BUFFER_SIZE 1024
 #define SERVER_IP "192.168.10.204" 
+//#define SERVER_IP "192.168.10.223" 
 #define MAX_LINE 2048
 #define CONNECT_SIZE 256
 
@@ -92,7 +93,7 @@ int sendBroadcastmessage(char msg[30])
     struct sockaddr_in theirAddr;
     memset(&theirAddr, 0, sizeof(struct sockaddr_in));
     theirAddr.sin_family = AF_INET;
- //   theirAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+   theirAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
     
     theirAddr.sin_port = htons(4001);
 
