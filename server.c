@@ -1,36 +1,18 @@
 #include "utility.h"
 int main()
 {
-    ///定义sockfd
-    int server_sockfd = socket(AF_INET,SOCK_STREAM, 0);
-
     //服务器发送的通知消息
     char message[BUF_SIZE];
     ssize_t n, ret;
     char buf[MAX_LINE];
-    ///定义sockaddr_in
-    struct sockaddr_in server_sockaddr;
-    server_sockaddr.sin_family = AF_INET;
-    server_sockaddr.sin_port = htons(MYPORT);
-    server_sockaddr.sin_addr.s_addr = inet_addr(SERVER_IP);
 
-    ///bind，成功返回0，出错返回-1
-    if(bind(server_sockfd,(struct sockaddr *)&server_sockaddr,sizeof(server_sockaddr))==-1)
-    {
-        perror("bind");
-        exit(1);
-    }
+    //创建TCP的socket
+    struct sockaddr_in serv_address;
+    int server_sockfd = create_connection("TCP","SERVER", serv_address);
 
-    ///listen，成功返回0，出错返回-1
-    if(listen(server_sockfd,QUEUE) == -1)
-    {
-        perror("listen");
-        exit(1);
-    }
-
-    //创建事件表
+   //创建事件表
     int epfd = epoll_create(EPOLL_SIZE);
-	if(epfd < 0) { perror("epfd error"); exit(-1);}
+    if(epfd < 0) { perror("epfd error"); exit(-1);}
    // printf("epoll created, epollfd = %d\n", epfd);
     static struct epoll_event ev, events[EPOLL_SIZE];
     /*生成用于处理accept的epoll专用文件描述符*/
