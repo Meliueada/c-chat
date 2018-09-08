@@ -33,8 +33,8 @@ int main(int argc, char *argv[])
 
     //判断用户是否输入用户名
     if (argc != 2){
-        printf("please input your name\n");
-        printf("EXAMPLE: './client li'\n");
+        printf("!!!!ERROR!!!!!!---------PLEASE INPUT YOUR NAME\n");
+        printf("USAGE: './client li'\n");
         exit(-1);
     }
     else{
@@ -42,17 +42,13 @@ int main(int argc, char *argv[])
     }
 
    //创建子进程 
-   //
    int pid = fork();
-   char *delim = "--"; //用户名称分隔符
-   char *p;
-   char type[32];
 
    if(pid < 0) { perror("fork error"); exit(-1); }
    else if(pid == 0)     // 子进程
    {
        close(pipe_fd[0]);
-       printf("you could input EXIT to quit the chatroom\n");
+       printf("You could input EXIT to quit the chatroom\n");
        while(1){
               bzero(&sendline, MAX_LINE);
               fgets(sendline , BUF_SIZE, stdin);
@@ -82,7 +78,6 @@ int main(int argc, char *argv[])
                     read_msg(events[i].data.fd, recvline, MAX_LINE);
                     send_packet("MESSAGE", recvline, sock);
                }//else
-          // }
            }//for
        }//while
    }//else

@@ -22,7 +22,8 @@ int main()
     while(1)
     {
         int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
-        if (epoll_events_count < 0){
+        if (epoll_events_count < 0)
+        {
             perror("epoll failure");
             break;
         }
@@ -40,7 +41,8 @@ int main()
             }//if
 
             /*如果是已链接用户，并且收到数据，进行读入*/
-            else if(events[i].events & EPOLLIN){
+            else if(events[i].events & EPOLLIN)
+            {
                 if((sockfd = events[i].data.fd) < 0)
                     continue;
                 bzero(buf , MAX_LINE);
@@ -50,61 +52,55 @@ int main()
                     events[i].data.fd = -1;
                 }//if
 
-                else{
-                    buf[n] = '\0';
-                    char message_type[32];
-                    char *p;
-                    char *delim = "--";
-                    char *username;
-                    int usernum = events[i].data.fd;
-
-                    sprintf(message_type, "%s\n",strtok(buf,delim));
-                    while(p=strtok(NULL,delim)){
-                        username = p;
-                        printf("%s", p);
-
-                }
-                if(strncasecmp(message_type, "REGISTER", strlen("REGISTER")) == 0)
+                else
                 {
-                    //新用户欢迎广播
-                    sprintf(message, SERVER_WELCOME, username);
-                    sendBroadcastmessage(message);
-                    sprintf(clients[usernum], "%s",username);
-                    printf("用户名称登记为%s\n",clients[usernum]);
-                    printf("用户名称登记号为%d\n",usernum);
-                    //用户数量播报
-                    int clients_count = getClientsNum(clients);
-                    sprintf(message, USER_COUNT, clients_count);
-                    sendBroadcastmessage(message);
-                    continue;
-                }
-                else if(strncasecmp(message_type, "EXIT", strlen("EXIT")) == 0)
+                    buf[n] = '\0';
+                    char message_type[12];
+                    char username[20];
+                    int userfd = events[i].data.fd;
+
+                    //报文类型
+                    strncpy(message_type, buf, 10);
+                    printf("buf%s\n",buf);
+                    //报文内容
+                    strncpy(username, buf+13, 10);
+
+                    if(strncasecmp(message_type, "REGISTER", strlen("REGISTER")) == 0)
                     {
-                        //用户退出广播
-                    sprintf(message, SERVER_EXIT, clients[usernum]);
-                    sendBroadcastmessage(message);
-                    printf("用户名称登记号为%d",usernum);
-                    deleteClient(clients, usernum);
-                    int clients_count = getClientsNum(clients);
-                    sprintf(message, USER_COUNT, clients_count);
-                    sendBroadcastmessage(message);
-                    continue;
+                        //新用户欢迎广播
+                        sprintf(message, SERVER_WELCOME, username);
+                        sendBroadcastmessage(message);
+                        sprintf(clients[userfd], "%s",username);
+                        printf("用户名称登记为%s\n",clients[userfd]);
+                        printf("用户名称登记号为%d\n",userfd);
+                        //用户数量播报
+                        int clients_count = getClientsNum(clients);
+                        sprintf(message, USER_COUNT, clients_count);
+                        sendBroadcastmessage(message);
+                        continue;
                     }
-                //设置用于注册写操作文件描述符和事件
-                modfd(epfd, sockfd, false);
+                    else if(strncasecmp(message_type, "EXIT", strlen("EXIT")) == 0)
+                        {
+                        //用户退出广播
+                        sprintf(message, SERVER_EXIT, clients[userfd]);
+                        sendBroadcastmessage(message);
+                        printf("用户名称登记号为%d",userfd);
+                        //删除用户
+                        deleteClient(clients, userfd);
+                        int clients_count = getClientsNum(clients);
+                        sprintf(message, USER_COUNT, clients_count);
+                        sendBroadcastmessage(message);
+                        continue;
+                        }
+                    else if(strncasecmp(message_type, "MESSAGE", strlen("MESSAGE")) == 0)
+                        {
+                        //用户交流消息
+                        sprintf(message, USER_SPEAK, clients[sockfd], username);
+                        sendBroadcastmessage(message);
+                        bzero(buf , MAX_LINE);
+                        }
 
                 }//else
-            }//else
-            else if(events[i].events & EPOLLOUT)
-            {
-                if((sockfd = events[i].data.fd) < 0)
-                continue;
-                sprintf(message, USER_SPEAK, clients[sockfd],buf);
-                printf("message%s\n",message);
-
-                sendBroadcastmessage(message);
-                //设置用于读的文件描述符和事件
-                modfd(epfd, sockfd, true);
             }//else
       }//for
     }

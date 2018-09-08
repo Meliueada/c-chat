@@ -24,13 +24,13 @@
 
 //epoll 支持的最大并发量
 #define EPOLL_SIZE 5000
-#define SERVER_WELCOME "Welcome client 【%s】 to join the chatroom!"
-#define SERVER_EXIT  "client 【%s】exit the chatroom!"
+#define SERVER_WELCOME "-----------------Welcome client 【%s】 to join the chatroom!-------------------"
+#define SERVER_EXIT  "-------------------client 【%s】exit the chatroom!----------------------"
 #define BUF_SIZE 0x10000
 
 #define CAUTION "There is only one in the chatroom!"
 #define USER_COUNT "Now there are %d users in the chatroom"
-#define USER_SPEAK "Client 【%s】 say >>>> %s"
+#define USER_SPEAK "【%s】 say >>>> %s"
 
 
 #define HEAD_LEN 10
@@ -87,7 +87,6 @@ int build_udp_connection(struct sockaddr_in sock_address){
    recvAddr.sin_family = AF_INET;
    recvAddr.sin_port = htons(4001);
    recvAddr.sin_addr.s_addr = INADDR_ANY;
-   printf("%ds_addr\n",recvAddr.sin_addr.s_addr);
    //绑定 
    if(bind(sockListen, (struct sockaddr *)&recvAddr, sizeof(struct sockaddr)) == -1){
        perror("udp bind error");
@@ -110,7 +109,6 @@ for (i = 0; i<10; i++){
     if (clients[i][j]){
         printf("users:%s\n",clients[i]);
         count ++;
-        printf("j%d:\n",j);
         break;
     }
  }
@@ -235,7 +233,7 @@ void send_packet(char *packet_type, char *message, int sockfd)
 
     char *packet = make_packet(packet_type, message);
 
-    if(send(sockfd, message, MAX_LINE, 0)== -1)
+    if(send(sockfd, packet, MAX_LINE, 0)== -1)
     {
         perror("send error\n");
     }
@@ -269,12 +267,10 @@ char *read_msg(int sockfd, char *src, int buffer)
 //封装accept函数
 int accept_client(int server_sock)
 {
-    printf("nnnnnnnnnn\n");
     struct sockaddr_in client_address;
     int clientfd;
     socklen_t client_addrLength = sizeof(struct sockaddr_in);
     clientfd= accept( server_sock, ( struct sockaddr* )&client_address, &client_addrLength);
-    printf("clientfd%d\n", clientfd);
     return clientfd;
 }
 
