@@ -1,32 +1,22 @@
 #include "utility.h"
 
-//sendFunction
-void sendToServer(int sockfd, char message[MAX_LINE]){
-    if(send(sockfd, message, MAX_LINE, 0)== -1)
-    {
-        perror("send error\n");
-    }
-
-}
-
 int main(int argc, char *argv[])
 {
-    struct sockaddr_in tcp_address;
-
-
     //创建TCP的socket
-    int sock = create_connection("TCP", "CLIENT", tcp_address);
+    struct sockaddr_in tcp_address;
+    int sock = build_tcp_connection("CLIENT", tcp_address);
 
-    struct sockaddr_in recvAddr;
     ///定义udp的sockfd
-    int sockListen = build_udp_client(recvAddr);
+    struct sockaddr_in recvAddr;
+    int sockListen = build_udp_connection(recvAddr);
 
+    //声明输入，输出
     char sendline[MAX_LINE] , recvline[MAX_LINE];
-    //判断客户端是否正常工作
-    bool isClientWorking = true;
+
     //创建管道, fd[0]读，fd[1]写
     int pipe_fd[2];
     if(pipe(pipe_fd) < 0) { perror("pipe error"); exit(-1); }
+
     //创建epoll
     int epfd = epoll_create(EPOLL_SIZE);
     if(epfd < 0) { perror("epfd error"); exit(-1); }
@@ -37,19 +27,18 @@ int main(int argc, char *argv[])
     ev.data.fd = sock;
     ev.events = EPOLLIN;
     epoll_ctl(epfd, EPOLL_CTL_ADD, sockListen, &ev);
+
     //添加管道到epoll
-    ev.data.fd = pipe_fd[0];
-    ev.events = EPOLLIN;
-    epoll_ctl(epfd, EPOLL_CTL_ADD,pipe_fd[0],&ev);
+    addfd(epfd, pipe_fd[0],false);
+
+    //判断用户是否输入用户名
     if (argc != 2){
         printf("please input your name\n");
         printf("EXAMPLE: './client li'\n");
         exit(-1);
     }
     else{
-        char *registerPacket;
-        registerPacket = makePacket("REGISTER--",argv[1]);
-        sendToServer(sock, registerPacket);
+        send_packet("REGISTER", argv[1], sock);
     }
 
    //创建子进程 
@@ -64,15 +53,12 @@ int main(int argc, char *argv[])
    {
        close(pipe_fd[0]);
        printf("you could input EXIT to quit the chatroom\n");
-       while(isClientWorking){
+       while(1){
               bzero(&sendline, MAX_LINE);
               fgets(sendline , BUF_SIZE, stdin);
               if(strncasecmp(sendline, "EXIT", strlen("EXIT")) == 0)
               {
-                  char *exitPacket;
-                  exitPacket=makePacket("EXIT","--");
-                  sendToServer(sock, exitPacket);
-                  printf("have a good day and wish to see you again\n");
+                  send_packet("EXIT", "--", sock);
                   exit(-1);
               }
               if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
@@ -82,30 +68,21 @@ int main(int argc, char *argv[])
        }//while
    }//else if
    else{
-       while(isClientWorking){
+       while(1){
            int epoll_events_count = epoll_wait(epfd, events, EPOLL_SIZE, -1);
            int i;
            bzero(recvline, MAX_LINE);
            for (i = 0; i < epoll_events_count; ++i){
-               int even_fd = events[i].data.fd;
+               //接受客户端发送消息
                if (events[i].data.fd == sock){
-               int recvbytes;
-               int addrLen = sizeof(struct sockaddr_in);
-               if((recvbytes = recvfrom(sockListen, recvline, 128, 0, (struct sockaddr *)&recvAddr, &addrLen)) != -1)
-               recvline[recvbytes] = '\0';
-               printf("recvie%s\n", recvline);
+                    receive_from_socket(sockListen, recvAddr, recvline);
                }
+               //接受命令行输入信息并发送至客户端
                else{
-                   int ret = read(events[i].data.fd, recvline, MAX_LINE);
-                   if(ret == 0){
-                       isClientWorking = 0;
-                   }
-                   else{
-                      // send(sock, recvline, MAX_LINE, 0);
-                      //printf("recvline%s\n",recvline);
-                      sendToServer(sock, recvline);
-                   }//else
+                    read_msg(events[i].data.fd, recvline, MAX_LINE);
+                    send_packet("MESSAGE", recvline, sock);
                }//else
+          // }
            }//for
        }//while
    }//else

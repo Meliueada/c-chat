@@ -32,73 +32,24 @@
 #define USER_COUNT "Now there are %d users in the chatroom"
 #define USER_SPEAK "Client 【%s】 say >>>> %s"
 
-//函数声明
-//void set_address(struct sockaddr_in sock_address, int port, char *ip_address);
-int do_socket(int sockfd, char *conn_type, struct sockaddr_in servaddr);
 
-//创建socket及bind，listen等
-int create_connection(char *sock_type, char *conn_type, struct sockaddr_in sock_address){
+#define HEAD_LEN 10
+//创建TCP类型的SOCKET
+int build_tcp_connection(char *conn_type, struct sockaddr_in sock_address){
     int sockfd;
-    //创建TCP类型的SOCKET
-    if(strncasecmp(sock_type, "TCP", strlen("TCP")) == 0) 
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        printf("TCP\n");
-        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        {
-            perror("socket error");
-        }
-        //设置地址，端口等
-        memset(&sock_address, 0, sizeof(sock_address));
-        sock_address.sin_family = AF_INET;
-        sock_address.sin_port = htons(TCP_PORT);  ///服务器端口
-        sock_address.sin_addr.s_addr = inet_addr(SERVER_IP);  ///服务器ip
-
-    //    set_address(sock_address, TCP_PORT, SERVER_IP);
+        perror("socket error");
     }
-    //创建UDP类型的SOCKET
-    else if(strncasecmp(sock_type, "UDP", strlen("UDP")) == 0)
-    {
-        printf("UDP\n");
-        if((sockfd = socket(AF_INET, SOCK_DGRAM, 0))==-1)
-        {
-            perror("socket error");
-        }
-        int set = 1;
-        setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
-        //设置地址，端口等
-        memset(&sock_address, 0, sizeof(struct sockaddr_in));
-        sock_address.sin_family = AF_INET;
-        sock_address.sin_port = htons(UDP_PORT);  ///服务器端口
-        sock_address.sin_addr.s_addr = inet_addr(SERVER_IP);  ///服务器ip
-        printf("utility s_addr%d\n",sock_address.sin_addr.s_addr);
+    //设置地址，端口等
+    memset(&sock_address, 0, sizeof(sock_address));
+    sock_address.sin_family = AF_INET;
+    sock_address.sin_port = htons(TCP_PORT);  ///服务器端口
+    sock_address.sin_addr.s_addr = inet_addr(SERVER_IP);  ///服务器ip
 
-        if(bind(sockfd,(struct sockaddr *)&sock_address, sizeof(struct sockaddr))==-1)
-        {
-            perror("bind");
-            exit(1);
-        }
-    }
-
-    sockfd = do_socket(sockfd, conn_type, sock_address);
-    return sockfd;
-} 
-
-////设置地址端口等
-//void set_address(struct sockaddr_in sock_address, int port, char *ip_address)
-//    {
-//        memset(&sock_address, 0, sizeof(sock_address));
-//        sock_address.sin_family = AF_INET;
-//        sock_address.sin_port = htons(port);  ///服务器端口
-//        sock_address.sin_addr.s_addr = inet_addr(ip_address);  ///服务器ip
-//    }
-
-
-int do_socket(int sockfd, char *conn_type, struct sockaddr_in servaddr)
-{
     if(strncasecmp(conn_type, "SERVER", strlen("SERVER")) == 0)  //服务器端socket
     {
-        printf("%s\n","SERVER");
-        if(bind(sockfd,(struct sockaddr *)&servaddr, sizeof(servaddr))==-1)
+        if(bind(sockfd,(struct sockaddr *)&sock_address, sizeof(sock_address))==-1)
         {
             perror("bind");
             exit(1);
@@ -108,28 +59,26 @@ int do_socket(int sockfd, char *conn_type, struct sockaddr_in servaddr)
             perror("listen");
             exit(1);
         }
-    }//if
-
+    }
+    //创建CLIENT的SOCKET
     else if(strncasecmp(conn_type, "CLIENT", strlen("CLIENT")) == 0)  //客户端socket
     {
-        printf("%s\n","CLIENT");
-        if(connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+        if(connect(sockfd, (struct sockaddr *)&sock_address, sizeof(sock_address)) < 0)
         {
             perror("connect");
             exit(1); 
         }
-    }//else if
-
+    }
     return sockfd;
-}//void
+} 
 
-
-int build_udp_client(struct sockaddr_in sock_address){
-      int sockListen;
-      if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1){
-         perror("udp sock error");
-         exit(-1);
-      }
+int build_udp_connection(struct sockaddr_in sock_address){
+   int sockListen;
+   if((sockListen = socket(AF_INET, SOCK_DGRAM, 0))==-1)
+   {
+       perror("udp sock error");
+       exit(-1);
+   }
 
    int set = 1;
    setsockopt(sockListen, SOL_SOCKET, SO_REUSEADDR, &set, sizeof(int));
@@ -145,7 +94,6 @@ int build_udp_client(struct sockaddr_in sock_address){
        exit(-1);
    }
    return sockListen;
- 
 }
 
 
@@ -181,7 +129,6 @@ int j;
 
 }
 }
-
 
 //设置sockfd,pipefd非阻塞
 int setnonblocking(int sockfd)
@@ -229,21 +176,108 @@ void addfd( int epollfd, int fd, bool enable_et )
         ev.events = EPOLLIN | EPOLLET;
     epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ev);
     setnonblocking(fd);
+}
+
+void modfd( int epollfd, int fd, char enable_in)
+{
+    struct epoll_event ev;
+    ev.data.fd = fd;
+    if(enable_in)
+        ev.events = EPOLLIN|EPOLLET;     
+    else 
+        ev.events = EPOLLOUT| EPOLLET;
+    epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &ev);
+    setnonblocking(fd);
  //   printf("fd added to epoll!\n\n");
 }
 
-//生成报文
-char* makePacket(char *s1, char *s2)
+//sendFunction
+void sendToServer(int sockfd, char message[MAX_LINE]){
+    if(send(sockfd, message, MAX_LINE, 0)== -1)
+    {
+        perror("send error\n");
+    }
+}
+
+
+//
+
+
+//组装报文
+char* make_packet(char *msg_head, char *msg_body)
 {
-    char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the zero-terminator
+    char *head = malloc(strlen(msg_head)+10);//+1 for the zero-terminator
+    int i ;
+    strcpy(head, msg_head);
+    for (i=0; i<HEAD_LEN; i++)
+    {
+        if (strlen(head) <HEAD_LEN)
+        {
+            strcat(head," ");
+        }
+    }
+    char *len = malloc(strlen(msg_body)+3);
+    sprintf(len,"%03d",strlen(msg_body));
+
+    char *result = malloc(strlen(msg_head)+strlen(len)+strlen(msg_body)+1);//+1 for the zero-terminator
     //in real code you would check for errors in malloc here
     if (result == NULL) exit (1);
-    strcpy(result, s1);
-    strcat(result, s2);
-
+    strcpy(result, head);
+    strcat(result, len);
+    strcat(result, msg_body);
     return result;
+}
+
+
+//发送报文
+void send_packet(char *packet_type, char *message, int sockfd)
+{
+
+    char *packet = make_packet(packet_type, message);
+
+    if(send(sockfd, message, MAX_LINE, 0)== -1)
+    {
+        perror("send error\n");
+    }
 
 }
+
+void receive_from_socket(int sockfd, struct sockaddr_in sock_address, char *recvline)
+{
+    int recvbytes;
+    int addrLen = sizeof(struct sockaddr_in);
+    if((recvbytes = recvfrom(sockfd, recvline, 128, 0, (struct sockaddr *)&sock_address, &addrLen)) != -1)
+    {
+
+        recvline[recvbytes] = '\0';
+        printf("%s\n", recvline);
+    }
+   // return recvline;
+}
+
+//封装read函数
+char *read_msg(int sockfd, char *src, int buffer)
+{
+    if(read(sockfd, src, buffer)<0)
+    {
+        perror("read error");
+    }
+
+    return src;
+}
+
+//封装accept函数
+int accept_client(int server_sock)
+{
+    printf("nnnnnnnnnn\n");
+    struct sockaddr_in client_address;
+    int clientfd;
+    socklen_t client_addrLength = sizeof(struct sockaddr_in);
+    clientfd= accept( server_sock, ( struct sockaddr* )&client_address, &client_addrLength);
+    printf("clientfd%d\n", clientfd);
+    return clientfd;
+}
+
 
 
 

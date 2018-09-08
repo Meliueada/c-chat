@@ -4,19 +4,19 @@ CC = gcc
 all: server client
 
 server:server.c
-	cc server.c -o server
+	${CC} server.c -o server
 
 client: client.c 
-	cc client.c -o client
+	${CC} client.c -o client
 
 broadcast_server:
-	cc broadcast_server.c -o broadcast_server
+	${CC} broadcast_server.c -o broadcast_server
 
 broadcast_client:
-	cc broadcast_client.c -o broadcast_client
+	${CC} broadcast_client.c -o broadcast_client
 
 udp_client:
-	cc udp_client.c -o udpclient
+	${CC} udp_client.c -o udpclient
 
 clean:
 	rm server client
