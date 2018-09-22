@@ -1,6 +1,8 @@
 #include "utility.h"
 int main()
 {
+    printf("Welcome to LYHM's ChatRoom. \nServer is Started.\n");
+
     //服务器发送的通知消息
     char message[BUF_SIZE];
     ssize_t n, ret;

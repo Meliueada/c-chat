@@ -1,14 +1,39 @@
 #include "utility.h"
 
+//创建连接socket
+int create_connection(char *conn_type)
+{
+    int sockfd;
+    struct sockaddr_in address;
+    if(strncasecmp(conn_type, "TCP", strlen("TCP")) == 0)
+    {
+        sockfd = build_tcp_connection("CLIENT", address);
+    }
+    else if(strncasecmp(conn_type, "UDP", strlen("UDP"))==0)
+    {
+        sockfd = build_udp_connection(address);
+    }
+    return sockfd;
+}
+
+void register_to_server(int server_fd, struct register_info info)
+{
+    
+
+}
+
+
+
+
+
 int main(int argc, char *argv[])
 {
+    
     //创建TCP的socket
-    struct sockaddr_in tcp_address;
-    int sock = build_tcp_connection("CLIENT", tcp_address);
-
+    int tcp_sock = create_connection("TCP");
     ///定义udp的sockfd
-    struct sockaddr_in recvAddr;
-    int sockListen = build_udp_connection(recvAddr);
+    int udp_sock = create_connection("UDP");
+
 
     //声明输入，输出
     char sendline[MAX_LINE] , recvline[MAX_LINE];
@@ -24,21 +49,20 @@ int main(int argc, char *argv[])
 
     //添加sock到epoll
     epfd = epoll_create(CONNECT_SIZE);
-    ev.data.fd = sock;
+    ev.data.fd = tcp_sock;
     ev.events = EPOLLIN;
-    epoll_ctl(epfd, EPOLL_CTL_ADD, sockListen, &ev);
+    epoll_ctl(epfd, EPOLL_CTL_ADD, udp_sock, &ev);
 
     //添加管道到epoll
     addfd(epfd, pipe_fd[0],false);
 
     //判断用户是否输入用户名
     if (argc != 2){
-        printf("!!!!ERROR!!!!!!---------PLEASE INPUT YOUR NAME\n");
-        printf("USAGE: './client li'\n");
+        printf("USAGE: ./client <nickname>\n");
         exit(-1);
     }
     else{
-        send_packet("REGISTER", argv[1], sock);
+        send_packet("REGISTER", argv[1], tcp_sock);
     }
 
    //创建子进程 
@@ -54,7 +78,7 @@ int main(int argc, char *argv[])
               fgets(sendline , BUF_SIZE, stdin);
               if(strncasecmp(sendline, "EXIT", strlen("EXIT")) == 0)
               {
-                  send_packet("EXIT", "--", sock);
+                  send_packet("EXIT", "--", tcp_sock);
                   exit(-1);
               }
               if(write(pipe_fd[1], sendline, strlen(sendline)-1)<0){
@@ -69,14 +93,15 @@ int main(int argc, char *argv[])
            int i;
            bzero(recvline, MAX_LINE);
            for (i = 0; i < epoll_events_count; ++i){
-               //接受客户端发送消息
-               if (events[i].data.fd == sock){
-                    receive_from_socket(sockListen, recvAddr, recvline);
+               //接受server消息
+               if (events[i].data.fd == tcp_sock){
+                  //  receive_from_socket(udp_sock, recvAddr, recvline);
+                  printf("USAGE: ./client <nickname>\n");
                }
                //接受命令行输入信息并发送至客户端
                else{
                     read_msg(events[i].data.fd, recvline, MAX_LINE);
-                    send_packet("MESSAGE", recvline, sock);
+                    send_packet("MESSAGE", recvline, tcp_sock);
                }//else
            }//for
        }//while
@@ -85,7 +110,7 @@ int main(int argc, char *argv[])
    if(pid){
       //关闭父进程和sock
        close(pipe_fd[0]);
-       close(sock);
+       close(tcp_sock);
    }else{
        //关闭子进程
        close(pipe_fd[1]);

@@ -3,11 +3,24 @@ CC = gcc
 
 all: server client
 
-server:server.c
-	${CC} server.c -o server
+utility: utility.c
+	${CC} -c utility.c -o utility.o
 
-client: client.c 
-	${CC} client.c -o client
+
+server.o:server.c
+	${CC} -c server.c -o server.o
+
+client.o:client.c
+	${CC} -c client.c -o client.o
+
+
+server:server.o utility.o
+	${CC} server.o utility.o -o server
+
+client: client.o utility.o
+	${CC} client.o utility.o -o client
+
+
 
 broadcast_server:
 	${CC} broadcast_server.c -o broadcast_server
