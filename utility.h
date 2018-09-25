@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #define TCP_PORT 8887
 #define UDP_PORT 4001
@@ -33,12 +34,13 @@
 #define USER_SPEAK "【%s】 say >>>> %s"
 #define HEAD_LEN 10
 
-struct register_info
+/* 定义一个结构体，传入注册时需要的信息
+ */
+ 
+typedef struct _register_info
 {
-    
-}
-
-
+    char name[20];    //注册用户名
+}register_info;
 
 
 int build_tcp_connection(char *conn_type, struct sockaddr_in sock_address);
@@ -60,9 +62,9 @@ void sendToServer(int sockfd, char message[MAX_LINE]);
 
 char* make_packet(char *msg_head, char *msg_body);
 
-void send_packet(char *packet_type, char *message, int sockfd);
+int send_packet(char *packet_type, char *message, int sockfd);
 
-void receive_from_socket(int sockfd, struct sockaddr_in sock_address, char *recvline);
+void receive_from_socket(int sockfd, char *recvline);
 
 char *read_msg(int sockfd, char *src, int buffer);
 

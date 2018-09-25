@@ -198,21 +198,24 @@ char* make_packet(char *msg_head, char *msg_body)
 }
 
 //发送报文
-void send_packet(char *packet_type, char *message, int sockfd)
+int send_packet(char *packet_type, char *message, int sockfd)
 {
 
     char *packet = make_packet(packet_type, message);
 
     if(send(sockfd, packet, MAX_LINE, 0)== -1)
     {
-        perror("send error\n");
+        perror("send_packet, send error\n");
+        return -1;
     }
+    return 0;
 
 }
 
 
-void receive_from_socket(int sockfd, struct sockaddr_in sock_address, char *recvline)
+void receive_from_socket(int sockfd, char *recvline)
 {
+    struct sockaddr_in sock_address;
     int recvbytes;
     int addrLen = sizeof(struct sockaddr_in);
     if((recvbytes = recvfrom(sockfd, recvline, 128, 0, (struct sockaddr *)&sock_address, &addrLen)) != -1)
@@ -246,17 +249,17 @@ int accept_client(int server_sock)
 }
 
 
-//组装报文
-char make_package(char *package_type)
-{
-    if(strncasecmp(package_type, "REGISTER", strlen("REGISTER")) == 0)
-    {
-        make_register_packeage();
-    }
-    else if(strncasecmp(package_type, "EXIT", strlen("REGISTER")) == 0)
-    {
-        make_exit_package();
-    }
-    
-}
+////组装报文
+//char make_package(char *package_type)
+//{
+//    if(strncasecmp(package_type, "REGISTER", strlen("REGISTER")) == 0)
+//    {
+//        make_register_packeage();
+//    }
+//    else if(strncasecmp(package_type, "EXIT", strlen("REGISTER")) == 0)
+//    {
+//        make_exit_package();
+//    }
+//    
+//}
 
